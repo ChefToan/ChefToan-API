@@ -1,10 +1,14 @@
 import matplotlib
+
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
 import numpy as np
 import requests
 from PIL import Image
 from io import BytesIO
+import datetime
+
 
 def generate_chart(player_info, daily_data, final_trophies, average_offense, average_defense, net_gain):
     """Creates a PNG chart in memory and returns a BytesIO buffer."""
@@ -46,13 +50,14 @@ def generate_chart(player_info, daily_data, final_trophies, average_offense, ave
     # Middle row
     ax_middle.set_xlim(0, 1)
     ax_middle.set_ylim(0, 1)
-    ax_middle.text(0.5, 0.75, "Legend League Trophies Progression", fontsize=16, fontweight='bold', va='center', ha='center')
+    ax_middle.text(0.5, 0.75, "Legend League Trophies Progression", fontsize=16, fontweight='bold', va='center',
+                   ha='center')
     ax_middle.text(0.5, 0.55, player_info.get('seasonStr', ''), fontsize=12, va='center', ha='center', color='#333333')
 
     stats = [
         ("Avg Offense", f"+{average_offense:.0f}"),
         ("Avg Defense", f"-{average_defense:.0f}"),
-        ("Avg Net Gain", f"{'+%.0f'%net_gain if net_gain>=0 else '%.0f'%net_gain}"),
+        ("Avg Net Gain", f"{'+%.0f' % net_gain if net_gain >= 0 else '%.0f' % net_gain}"),
         ("Final Trophies", f"{final_trophies}")
     ]
     x_positions = [0.1, 0.33, 0.57, 0.80]
@@ -67,18 +72,50 @@ def generate_chart(player_info, daily_data, final_trophies, average_offense, ave
     ax_chart.set_facecolor('white')
     x_dates = []
     y_trophies = []
-    for d in daily_data:
-        # Convert string dates back to datetime.date objects
-        if isinstance(d['date'], str):
-            import datetime
-            x_dates.append(datetime.date.fromisoformat(d['date']))
-        else:
-            x_dates.append(d['date'])
-        y_trophies.append(d['trophies'] if d['trophies'] is not None else np.nan)
 
-    ax_chart.plot(x_dates, y_trophies, marker='o', markersize=4, linewidth=2, color='#007bff', label='Trophies')
-    ax_chart.set_ylim([4800, 6000])
-    ax_chart.set_yticks(np.arange(4800, 6001, 240))
+    for d in daily_data:
+        # Skip data points without trophy information
+        if d['trophies'] is None:
+            continue
+
+        # Convert string date to datetime.date object
+        if isinstance(d['date'], str):
+            try:
+                date_obj = datetime.date.fromisoformat(d['date'])
+            except ValueError:
+                # If we can't parse the date, skip this data point
+                continue
+        else:
+            # If it's already a date object, use it directly
+            date_obj = d['date']
+
+        x_dates.append(date_obj)
+        y_trophies.append(d['trophies'])
+
+    # Plot the data only if we have valid points
+    if x_dates and y_trophies:
+        # Sort data points by date
+        sorted_data = sorted(zip(x_dates, y_trophies))
+        x_dates, y_trophies = zip(*sorted_data)
+
+        # Plot the data
+        ax_chart.plot(x_dates, y_trophies, marker='o', markersize=4, linewidth=2, color='#007bff', label='Trophies')
+
+        # Configure the axes
+        ax_chart.set_ylim([4800, 6000])
+        ax_chart.set_yticks(np.arange(4800, 6001, 240))
+
+        # Set the date format to MM/DD
+        date_format = mdates.DateFormatter('%m/%d')
+        ax_chart.xaxis.set_major_formatter(date_format)
+
+        # Set the locator to show one tick per day
+        ax_chart.xaxis.set_major_locator(mdates.DayLocator())
+    else:
+        # If no data points, show a message
+        ax_chart.text(0.5, 0.5, "No trophy data available",
+                      fontsize=14, ha='center', va='center')
+
     ax_chart.set_xlabel("Date", fontsize=12, fontweight='bold')
     ax_chart.set_ylabel("Trophies", fontsize=12, fontweight='bold')
     plt.setp(ax_chart.xaxis.get_majorticklabels(), rotation=45, ha='right')
@@ -90,6 +127,7 @@ def generate_chart(player_info, daily_data, final_trophies, average_offense, ave
     buf.seek(0)
     plt.close(fig)
     return buf
+
 
 def fetch_and_resize_image(url, size):
     """Fetch an image from a URL and resize it. Returns a PIL Image."""

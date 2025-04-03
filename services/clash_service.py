@@ -1,6 +1,8 @@
+# services/clash_service.py
 import requests
 from flask import current_app
 from services.redis_service import cached
+from services.retry_utils import retry_request
 
 
 class ClashApiClient:
@@ -17,35 +19,78 @@ class ClashApiClient:
             player_tag = f'#{player_tag}'
         return player_tag.replace('#', '%23')
 
-    @cached(timeout=300)  # Cache for 5 minutes
+    @cached(timeout=300, use_stale_on_error=True)  # Cache for 5 minutes, use stale data on error
+    @retry_request(max_retries=3)
     def get_player(self, player_tag):
         """Get player information from Clash of Clans API"""
         formatted_tag = self._format_tag(player_tag)
         url = f'{self.base_url}/players/{formatted_tag}'
 
-        response = requests.get(url, headers=self.headers)
-        response.raise_for_status()
+        try:
+            response = requests.get(url, headers=self.headers, timeout=10)
+            response.raise_for_status()
+            return response.json()
+        except requests.exceptions.HTTPError as e:
+            if e.response.status_code == 503:
+                current_app.logger.error(f"Clash of Clans API is currently unavailable: {str(e)}")
+                raise ServiceUnavailableError("Clash of Clans API is currently unavailable. Please try again later.")
+            elif e.response.status_code == 403:
+                current_app.logger.error(f"API authentication error: {str(e)}")
+                raise AuthenticationError("API authentication failed. Please check your API token.")
+            elif e.response.status_code == 404:
+                current_app.logger.error(f"Player not found: {player_tag}")
+                raise PlayerNotFoundError(f"Player {player_tag} not found.")
+            else:
+                raise
 
-        return response.json()
-
-    @cached(timeout=3600)  # Cache for 1 hour
+    @cached(timeout=3600, use_stale_on_error=True)  # Cache for 1 hour, use stale data on error
+    @retry_request(max_retries=3)
     def get_clan(self, clan_tag):
         """Get clan information from Clash of Clans API"""
         formatted_tag = self._format_tag(clan_tag)
         url = f'{self.base_url}/clans/{formatted_tag}'
 
-        response = requests.get(url, headers=self.headers)
-        response.raise_for_status()
+        try:
+            response = requests.get(url, headers=self.headers, timeout=10)
+            response.raise_for_status()
+            return response.json()
+        except requests.exceptions.HTTPError as e:
+            if e.response.status_code == 503:
+                current_app.logger.error(f"Clash of Clans API is currently unavailable: {str(e)}")
+                raise ServiceUnavailableError("Clash of Clans API is currently unavailable. Please try again later.")
+            else:
+                raise
 
-        return response.json()
-
-    @cached(timeout=300)  # Cache for 5 minutes
+    @cached(timeout=300, use_stale_on_error=True)  # Cache for 5 minutes, use stale data on error
+    @retry_request(max_retries=3)
     def get_clan_members(self, clan_tag):
         """Get clan members from Clash of Clans API"""
         formatted_tag = self._format_tag(clan_tag)
         url = f'{self.base_url}/clans/{formatted_tag}/members'
 
-        response = requests.get(url, headers=self.headers)
-        response.raise_for_status()
+        try:
+            response = requests.get(url, headers=self.headers, timeout=10)
+            response.raise_for_status()
+            return response.json()
+        except requests.exceptions.HTTPError as e:
+            if e.response.status_code == 503:
+                current_app.logger.error(f"Clash of Clans API is currently unavailable: {str(e)}")
+                raise ServiceUnavailableError("Clash of Clans API is currently unavailable. Please try again later.")
+            else:
+                raise
 
-        return response.json()
+
+# Custom exceptions
+class ServiceUnavailableError(Exception):
+    """Raised when an external service is unavailable"""
+    pass
+
+
+class AuthenticationError(Exception):
+    """Raised when API authentication fails"""
+    pass
+
+
+class PlayerNotFoundError(Exception):
+    """Raised when a requested player is not found"""
+    pass
