@@ -75,22 +75,22 @@ def generate_chart(player_info, daily_data, final_trophies, average_offense, ave
 
     for d in daily_data:
         # Skip data points without trophy information
-        if d['trophies'] is None:
+        if d.get('trophies') is None:
             continue
 
-        # Convert string date to datetime.date object
-        if isinstance(d['date'], str):
+        # Convert string date to datetime.date object if needed
+        if isinstance(d.get('date'), str):
             try:
-                date_obj = datetime.date.fromisoformat(d['date'])
+                date_obj = datetime.date.fromisoformat(d.get('date'))
             except ValueError:
                 # If we can't parse the date, skip this data point
                 continue
         else:
             # If it's already a date object, use it directly
-            date_obj = d['date']
+            date_obj = d.get('date')
 
         x_dates.append(date_obj)
-        y_trophies.append(d['trophies'])
+        y_trophies.append(d.get('trophies'))
 
     # Plot the data only if we have valid points
     if x_dates and y_trophies:
@@ -101,9 +101,28 @@ def generate_chart(player_info, daily_data, final_trophies, average_offense, ave
         # Plot the data
         ax_chart.plot(x_dates, y_trophies, marker='o', markersize=4, linewidth=2, color='#007bff', label='Trophies')
 
-        # Configure the axes
-        ax_chart.set_ylim([4800, 6000])
-        ax_chart.set_yticks(np.arange(4800, 6001, 240))
+        # Calculate appropriate y-axis limits
+        min_trophies = min(y_trophies)
+        max_trophies = max(y_trophies)
+        padding = (max_trophies - min_trophies) * 0.1  # 10% padding
+
+        # Set y-axis limits with appropriate padding
+        y_min = max(4600, min_trophies - padding)
+        y_max = min(6000, max_trophies + padding)
+
+        # Ensure final trophy count is visible in the plot
+        if final_trophies > y_max:
+            y_max = final_trophies + padding
+
+        ax_chart.set_ylim([y_min, y_max])
+
+        # Create appropriate tick points based on the range
+        range_size = y_max - y_min
+        tick_step = 100 if range_size <= 600 else 200
+        y_ticks = np.arange(np.floor(y_min / tick_step) * tick_step,
+                            np.ceil(y_max / tick_step) * tick_step + 1,
+                            tick_step)
+        ax_chart.set_yticks(y_ticks)
 
         # Set the date format to MM/DD
         date_format = mdates.DateFormatter('%m/%d')
@@ -115,6 +134,8 @@ def generate_chart(player_info, daily_data, final_trophies, average_offense, ave
         # If no data points, show a message
         ax_chart.text(0.5, 0.5, "No trophy data available",
                       fontsize=14, ha='center', va='center')
+        # Set default y-axis limits
+        ax_chart.set_ylim([4800, 6000])
 
     ax_chart.set_xlabel("Date", fontsize=12, fontweight='bold')
     ax_chart.set_ylabel("Trophies", fontsize=12, fontweight='bold')

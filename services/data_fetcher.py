@@ -70,66 +70,93 @@ def get_player_data(player_tag):
             season_str = "Unknown Season"
 
         # Process the daily data
-        current_trophies = initial_trophies
+        # Sort logs by timestamp to ensure correct trophy progression
+        sorted_logs = sorted(logs, key=lambda x: x.get('timestamp', 0))
+
+        # Initialize daily data structures
         daily_data = []
+        day_data_dict = {}
+
+        # Set starting trophies to initial value
+        current_trophies = initial_trophies
+
+        # Track total offense and defense for averages
         sum_offense = 0
         sum_defense = 0
         day_count = 0
 
-        # Create a dictionary to store daily data
-        # This helps ensure we only have one entry per day
-        day_data_dict = {}
-
+        # Process each day in the season
         current_day = start_date
-        while current_day < end_date:
-            # Store only the date part (without time)
+        while current_day <= end_date:
             current_date = current_day.date()  # Convert to date object
             next_day = current_day + timedelta(days=1)
 
             day_offense = 0
             day_defense = 0
             day_has_logs = False
+            day_trophy_end = None
 
-            for log_item in logs:
+            # Process logs for this day
+            for log_item in sorted_logs:
                 ts = log_item.get('timestamp', 0)
                 action_type = log_item.get('type', '')
                 inc = log_item.get('inc', 0)
+                # Important: Use 'end' value from log for the most accurate trophy count
+                log_end = log_item.get('end', current_trophies)
+
                 log_time = datetime.datetime.utcfromtimestamp(ts / 1000).replace(tzinfo=timezone.utc)
 
                 if current_day <= log_time < next_day:
                     day_has_logs = True
                     if action_type == 'attack':
                         day_offense += inc
-                        current_trophies += inc
                     elif action_type == 'defense':
-                        day_defense += abs(inc)
-                        current_trophies += inc
+                        day_defense += abs(inc)  # Use absolute value for defense
+
+                    # Update trophy count to the latest value in the logs for this day
+                    day_trophy_end = log_end
 
             # Store data for this day
+            date_str = current_date.isoformat()
+
             if day_has_logs:
-                # Convert date to string to avoid JSON serialization issues
-                date_str = current_date.isoformat()
+                # Use the end trophy value from the last log entry of the day
+                current_trophies = day_trophy_end
+
                 day_data_dict[date_str] = {
-                    'date': date_str,  # Store as string in ISO format
+                    'date': current_date,  # Store actual date object
                     'offense': day_offense,
                     'defense': day_defense,
                     'trophies': current_trophies
                 }
+
                 sum_offense += day_offense
                 sum_defense += day_defense
                 day_count += 1
             else:
                 # Only add empty days if we don't already have data for this day
-                date_str = current_date.isoformat()
-                if date_str not in day_data_dict:
+                # and if the day is not in the future
+                if date_str not in day_data_dict and current_day <= datetime.datetime.now(timezone.utc):
                     day_data_dict[date_str] = {
-                        'date': date_str,  # Store as string in ISO format
+                        'date': current_date,
                         'offense': None,
                         'defense': None,
                         'trophies': None
                     }
 
             current_day = next_day
+
+        # Ensure the final trophy value is accurate
+        # If we have logs, the last value should match the final trophy count from the API
+        if sorted_logs and final_trophies != current_trophies:
+            current_app.logger.warning(
+                f"Trophy mismatch: calculated={current_trophies}, reported={final_trophies}. Using reported value."
+            )
+            # Adjust the last day with trophy data to match the final value
+            for date_str in reversed(sorted(day_data_dict.keys())):
+                if day_data_dict[date_str]['trophies'] is not None:
+                    day_data_dict[date_str]['trophies'] = final_trophies
+                    break
 
         # Convert the dictionary to a list, sorted by date
         daily_data = [day_data_dict[date] for date in sorted(day_data_dict.keys())]
