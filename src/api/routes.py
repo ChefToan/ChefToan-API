@@ -1,7 +1,7 @@
 def register_routes(app):
     """Register only the two core API routes"""
-    from api.player import player_bp
-    from api.chart import chart_bp
+    from src.api.player import player_bp
+    from src.api.chart import chart_bp
 
     # Register blueprints
     app.register_blueprint(player_bp)

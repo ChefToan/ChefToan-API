@@ -1,5 +1,5 @@
 from flask import Blueprint, jsonify, current_app
-from services.clash_service import ClashApiClient
+from src.services.clash_service import ClashApiClient
 
 player_bp = Blueprint('player', __name__)
 

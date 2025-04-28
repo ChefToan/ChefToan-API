@@ -1,8 +1,8 @@
-# api/chart.py
-from flask import Blueprint, send_file, current_app, render_template_string
-from services.data_fetcher import get_player_data
-from utils.chart_generator import generate_chart
-from services.clash_service import ServiceUnavailableError, PlayerNotFoundError, AuthenticationError
+# src/api/chart.py
+from flask import Blueprint, send_file, current_app
+from src.services.data_fetcher import get_player_data
+from src.utils.chart_generator import generate_chart
+from src.services.clash_service import ServiceUnavailableError, PlayerNotFoundError, AuthenticationError
 
 chart_bp = Blueprint('chart', __name__)
 

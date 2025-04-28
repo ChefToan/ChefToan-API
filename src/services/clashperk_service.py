@@ -3,7 +3,7 @@ import datetime
 from datetime import timezone, timedelta
 import calendar
 from flask import current_app
-from services.redis_service import cached
+from src.services.redis_service import cached
 
 
 class ClashPerkClient:

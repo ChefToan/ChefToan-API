@@ -1,4 +1,4 @@
-# utils/chart_generator.py
+# src/utils/chart_generator.py
 import matplotlib
 
 matplotlib.use('Agg')
