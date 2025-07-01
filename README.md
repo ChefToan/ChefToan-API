@@ -59,8 +59,8 @@ A Flask application that fetches Legend League data from Clash of Clans and Clas
    ```
 
 7. Access the endpoints:
-   - Chart: `http://localhost:5001/chart/#PLAYERTAG`
-   - Player data: `http://localhost:5001/player/#PLAYERTAG`
+   - Chart: `http://localhost:5001/chart?tag=PLAYERTAG`
+   - Player data: `http://localhost:5001/player?tag=PLAYERTAG`
 
 ### Setting Up as an API Service
 
@@ -148,8 +148,8 @@ A Flask application that fetches Legend League data from Clash of Clans and Clas
 
 8. Access your local API at:
    ```
-   https://api.yourdomain.local/chart/#PLAYERTAG
-   https://api.yourdomain.local/player/#PLAYERTAG
+   https://api.yourdomain.local/chart?tag=PLAYERTAG
+   https://api.yourdomain.local/player?tag=PLAYERTAG
    ```
 
 #### Production Deployment
@@ -265,23 +265,38 @@ A Flask application that fetches Legend League data from Clash of Clans and Clas
 
 10. Your API is now accessible at:
     ```
-    https://api.yourdomain.com/chart/#PLAYERTAG
-    https://api.yourdomain.com/player/#PLAYERTAG
+    https://api.yourdomain.com/chart?tag=PLAYERTAG
+    https://api.yourdomain.com/player?tag=PLAYERTAG
     ```
 
 ## API Endpoints
 
-- `GET /chart/<player_tag>` - Generate and return a chart image for the specified player
+- `GET /chart?tag=<player_tag>` - Generate and return a chart image for the specified player
   - `player_tag`: The Clash of Clans player tag (with or without the # symbol)
-  - Example: `https://api.yourdomain.com/chart/#ABCDEF`
+  - Examples: 
+    - `https://api.yourdomain.com/chart?tag=ABCDEF123`
+    - `https://api.yourdomain.com/chart?tag=%23ABCDEF123` (URL encoded)
   - Response: PNG image
 
-- `GET /player/<player_tag>` - Get player information directly from Clash of Clans API
+- `GET /player?tag=<player_tag>` - Get player information directly from Clash of Clans API
   - `player_tag`: The Clash of Clans player tag (with or without the # symbol)
-  - Example: `https://api.yourdomain.com/player/#ABCDEF`
+  - Examples:
+    - `https://api.yourdomain.com/player?tag=ABCDEF123`
+    - `https://api.yourdomain.com/player?tag=%23ABCDEF123` (URL encoded)
   - Response: JSON data
 
-- `GET /` - Simple health check endpoint (returns "API is running")
+- `GET /` - API information and health check endpoint
+  - Returns API status and endpoint documentation
+  - Response: JSON with endpoint information and examples
+
+## Player Tag Format
+
+Player tags can be provided in several formats:
+- Without the # symbol: `?tag=ABCDEF123`
+- With the # symbol (URL encoded): `?tag=%23ABCDEF123`
+- With the # symbol (not encoded): `?tag=#ABCDEF123` (may work but not recommended)
+
+The API will automatically add the # prefix if it's missing and convert the tag to uppercase.
 
 ## Redis Caching
 
@@ -292,6 +307,17 @@ The application uses Redis to cache responses from external APIs:
 - Final combined player chart data (30 minutes cache)
 
 This reduces API calls and improves response times for frequent requests. Cache timeouts can be configured through environment variables.
+
+## Error Handling
+
+The API provides detailed error responses for common issues:
+
+- **400 Bad Request**: Missing player tag parameter
+- **404 Not Found**: Player not found
+- **500 Internal Server Error**: API authentication errors or other server issues
+- **503 Service Unavailable**: External APIs (Clash of Clans) temporarily unavailable
+
+For chart endpoints, errors are returned as generated error images with descriptive messages.
 
 ## Contributing
 

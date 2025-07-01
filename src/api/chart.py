@@ -1,5 +1,5 @@
 # src/api/chart.py
-from flask import Blueprint, send_file, current_app
+from flask import Blueprint, send_file, current_app, request
 from src.services.data_fetcher import get_player_data
 from src.utils.chart_generator import generate_chart
 from src.services.clash_service import ServiceUnavailableError, PlayerNotFoundError, AuthenticationError
@@ -7,10 +7,19 @@ from src.services.clash_service import ServiceUnavailableError, PlayerNotFoundEr
 chart_bp = Blueprint('chart', __name__)
 
 
-@chart_bp.route('/chart/<player_tag>')
-def get_player_chart(player_tag):
+@chart_bp.route('/chart')
+def get_player_chart():
     """Generate and return a chart for the player's trophy progress"""
     try:
+        # Get player tag from query parameter
+        player_tag = request.args.get('tag')
+        if not player_tag:
+            return generate_error_image(
+                "Missing Player Tag",
+                "Please provide a player tag using ?tag=PLAYERTAG",
+                400
+            )
+
         # Standardize the player tag
         if not player_tag.startswith('#'):
             player_tag = '#' + player_tag

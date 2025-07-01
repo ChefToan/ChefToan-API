@@ -1,13 +1,18 @@
-from flask import Blueprint, jsonify, current_app
+from flask import Blueprint, jsonify, current_app, request
 from src.services.clash_service import ClashApiClient
 
 player_bp = Blueprint('player', __name__)
 
 
-@player_bp.route('/player/<player_tag>')
-def get_player_info(player_tag):
+@player_bp.route('/player')
+def get_player_info():
     """Get player information directly from Clash of Clans API"""
     try:
+        # Get player tag from query parameter
+        player_tag = request.args.get('tag')
+        if not player_tag:
+            return jsonify({"error": "Missing player tag. Use ?tag=PLAYERTAG"}), 400
+
         # Initialize the Clash API client
         clash_client = ClashApiClient()
 
