@@ -1,3 +1,4 @@
+# app.py
 from flask import Flask
 from src.api.routes import register_routes
 import config
@@ -13,10 +14,12 @@ def create_app():
     if app.config['REDIS_ENABLED']:
         from src.services.redis_service import init_redis
         init_redis(app)
+        app.logger.info("Redis caching enabled")
 
     # Register API routes
     register_routes(app)
 
+    app.logger.info("API server initialized successfully")
     return app
 
 

@@ -1,3 +1,4 @@
+# src/services/redis_service.py - FIXED VERSION
 import redis
 import json
 import time
@@ -80,6 +81,7 @@ def cache_set(key, value, timeout=None):
 def cached(timeout=None, use_stale_on_error=False):
     """
     Decorator to cache function results based on arguments.
+    FIXED VERSION - Actually uses cached data instead of always calling function!
 
     Args:
         timeout: Cache expiration time in seconds
@@ -100,13 +102,19 @@ def cached(timeout=None, use_stale_on_error=False):
             cache_timeout = timeout or current_app.config['REDIS_CACHE_TIMEOUT']
 
             try:
-                # If not in cache or cache is expired, call the function
-                if cached_data is None:
-                    result = func(*args, **kwargs)
-                    cache_set(cache_key, result, cache_timeout)
-                    return result
+                # FIXED: Check if we have valid cached data first
+                if cached_data is not None and timestamp is not None:
+                    # Check if cache is still valid
+                    cache_age = time.time() - timestamp
+                    if cache_age < cache_timeout:
+                        # Cache hit - return cached data immediately
+                        current_app.logger.debug(f"Cache HIT for {func.__name__} (age: {cache_age:.1f}s)")
+                        return cached_data
+                    else:
+                        current_app.logger.debug(f"Cache EXPIRED for {func.__name__} (age: {cache_age:.1f}s)")
 
-                # Call the function and update cache
+                # Cache miss or expired - call function and cache result
+                current_app.logger.debug(f"Cache MISS for {func.__name__} - calling function")
                 result = func(*args, **kwargs)
                 cache_set(cache_key, result, cache_timeout)
                 return result
@@ -125,3 +133,34 @@ def cached(timeout=None, use_stale_on_error=False):
         return wrapper
 
     return decorator
+
+
+def cache_invalidate(pattern=None):
+    """Invalidate cache entries matching a pattern"""
+    if not current_app.config['REDIS_ENABLED'] or redis_client is None:
+        return
+
+    if pattern:
+        keys = redis_client.keys(pattern)
+        if keys:
+            redis_client.delete(*keys)
+            current_app.logger.info(f"Invalidated {len(keys)} cache entries matching pattern: {pattern}")
+    else:
+        redis_client.flushdb()
+        current_app.logger.info("Flushed entire cache database")
+
+
+def get_cache_stats():
+    """Get cache statistics"""
+    if not current_app.config['REDIS_ENABLED'] or redis_client is None:
+        return {"enabled": False}
+
+    info = redis_client.info()
+    return {
+        "enabled": True,
+        "keys": info.get("db0", {}).get("keys", 0),
+        "memory_used": info.get("used_memory_human", "0"),
+        "hits": info.get("keyspace_hits", 0),
+        "misses": info.get("keyspace_misses", 0),
+        "hit_rate": info.get("keyspace_hits", 0) / max(1, info.get("keyspace_hits", 0) + info.get("keyspace_misses", 0)) * 100
+    }
