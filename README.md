@@ -1,11 +1,12 @@
 # Clash of Clans Legend League API
 
-A Flask application that fetches Legend League data from Clash of Clans and ClashPerk APIs, then generates a matplotlib chart showing daily trophy progression. The API also provides direct access to player data.
+A Flask application that fetches Legend League data from Clash of Clans and ClashPerk APIs, then generates a matplotlib chart showing daily trophy progression. The API also provides direct access to player data and equipment information with optimized endpoints for mobile applications.
 
 ## Features
 
 - Generates trophy progression charts for Legend League players
 - Direct proxy access to player data from Clash of Clans API
+- **Optimized essentials endpoint** for mobile apps with reduced payload size (includes hero equipment)
 - Redis caching for improved performance and reduced API calls
 - Modular architecture for maintainability
 - Deployable as a standalone API service
@@ -60,7 +61,8 @@ A Flask application that fetches Legend League data from Clash of Clans and Clas
 
 7. Access the endpoints:
    - Chart: `http://localhost:5001/chart?tag=PLAYERTAG`
-   - Player data: `http://localhost:5001/player?tag=PLAYERTAG`
+   - Full Player data: `http://localhost:5001/player?tag=PLAYERTAG`
+   - **Essential Player data (Mobile)**: `http://localhost:5001/player/essentials?tag=PLAYERTAG`
 
 ### Setting Up as an API Service
 
@@ -150,6 +152,7 @@ A Flask application that fetches Legend League data from Clash of Clans and Clas
    ```
    https://api.yourdomain.local/chart?tag=PLAYERTAG
    https://api.yourdomain.local/player?tag=PLAYERTAG
+   https://api.yourdomain.local/player/essentials?tag=PLAYERTAG
    ```
 
 #### Production Deployment
@@ -267,6 +270,7 @@ A Flask application that fetches Legend League data from Clash of Clans and Clas
     ```
     https://api.yourdomain.com/chart?tag=PLAYERTAG
     https://api.yourdomain.com/player?tag=PLAYERTAG
+    https://api.yourdomain.com/player/essentials?tag=PLAYERTAG
     ```
 
 ## API Endpoints
@@ -278,16 +282,70 @@ A Flask application that fetches Legend League data from Clash of Clans and Clas
     - `https://api.yourdomain.com/chart?tag=%23ABCDEF123` (URL encoded)
   - Response: PNG image
 
-- `GET /player?tag=<player_tag>` - Get player information directly from Clash of Clans API
+- `GET /player?tag=<player_tag>` - Get **full** player information directly from Clash of Clans API
   - `player_tag`: The Clash of Clans player tag (with or without the # symbol)
   - Examples:
     - `https://api.yourdomain.com/player?tag=ABCDEF123`
     - `https://api.yourdomain.com/player?tag=%23ABCDEF123` (URL encoded)
-  - Response: JSON data
+  - Response: Complete JSON data from Clash of Clans API
+  - **Use Case**: When you need all available player data
+
+- `GET /player/essentials?tag=<player_tag>` - Get **essential** player information (optimized for mobile apps)
+  - `player_tag`: The Clash of Clans player tag (with or without the # symbol)
+  - Examples:
+    - `https://api.yourdomain.com/player/essentials?tag=ABCDEF123`
+    - `https://api.yourdomain.com/player/essentials?tag=%23ABCDEF123` (URL encoded)
+  - Response: Optimized JSON data with only essential information
+  - **Use Case**: **Recommended for mobile apps** - faster loading, smaller payload
+  - **Performance**: ~70% smaller payload than full player data
+  - Response includes: basic info, heroes, **hero equipment**, troops, spells, achievements (highest trophy only)
+  - **Hero Equipment Format**:
+    ```json
+    {
+      "heroEquipment": {
+        "barbarianKing": [...],
+        "archerQueen": [...],
+        "minionPrince": [...],
+        "grandWarden": [...],
+        "royalChampion": [...]
+      }
+    }
+    ```
 
 - `GET /` - API information and health check endpoint
   - Returns API status and endpoint documentation
   - Response: JSON with endpoint information and examples
+
+## Performance Optimizations
+
+### Mobile App Optimization
+
+For mobile applications, use the `/player/essentials` endpoint instead of `/player`:
+
+- **Payload Size**: ~70% smaller than full player data
+- **Loading Time**: Significantly faster due to reduced data transfer
+- **Battery Life**: Less network usage means better battery performance
+- **Data Usage**: Reduced mobile data consumption
+
+### Caching Strategy
+
+The application uses Redis to cache responses from external APIs:
+
+- **Player data** from Clash of Clans API (5 minutes cache)
+- **Essential player data** (including hero equipment) (5 minutes cache)
+- **Legend League data** from ClashPerk API (15 minutes cache)
+- **Final combined player chart data** (30 minutes cache)
+
+This reduces API calls and improves response times for frequent requests. Cache timeouts can be configured through environment variables.
+
+### Data Ordering
+
+All data is returned in consistent, logical order:
+
+- **Heroes**: Barbarian King → Archer Queen → Minion Prince → Grand Warden → Royal Champion
+- **Equipment**: Epic equipment first, then by equipped status
+- **Troops**: Logical progression from basic to advanced
+- **Spells**: Organized by elixir type and unlock order
 
 ## Player Tag Format
 
@@ -297,16 +355,6 @@ Player tags can be provided in several formats:
 - With the # symbol (not encoded): `?tag=#ABCDEF123` (may work but not recommended)
 
 The API will automatically add the # prefix if it's missing and convert the tag to uppercase.
-
-## Redis Caching
-
-The application uses Redis to cache responses from external APIs:
-
-- Player data from Clash of Clans API (5 minutes cache)
-- Legend League data from ClashPerk API (15 minutes cache)
-- Final combined player chart data (30 minutes cache)
-
-This reduces API calls and improves response times for frequent requests. Cache timeouts can be configured through environment variables.
 
 ## Error Handling
 
