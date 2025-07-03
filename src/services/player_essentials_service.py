@@ -1,11 +1,16 @@
 from collections import OrderedDict
 from src.services.redis_service import cached
+from src.services.clashking_service import ClashKingClient
+from flask import current_app
 
 
 class PlayerEssentialsService:
     """Service for processing essential player data for mobile app"""
 
     def __init__(self):
+        # Initialize ClashKing client
+        self.clashking_client = ClashKingClient()
+
         # Define ordering for all game elements
         self.hero_order = ['Barbarian King', 'Archer Queen', 'Minion Prince', 'Grand Warden', 'Royal Champion']
 
@@ -81,6 +86,9 @@ class PlayerEssentialsService:
                 'name': player_data['league'].get('name', '')
             }
 
+        # Extract legends ranking from ClashKing API
+        legends_info = self._get_legends_ranking(player_tag, player_data)
+
         # Get highest trophy from achievements
         highest_trophy = self._get_highest_trophy(player_data.get('achievements', []))
 
@@ -95,6 +103,7 @@ class PlayerEssentialsService:
             ('league', league_info),
             ('role', player_data.get('role', '')),
             ('achievements', highest_trophy),
+            ('legends', legends_info),  # Add legends ranking here
             ('trophies', player_data.get('trophies', 0)),
             ('warPreference', player_data.get('warPreference', '')),
             ('warStars', player_data.get('warStars', 0)),
@@ -112,6 +121,34 @@ class PlayerEssentialsService:
         ])
 
         return result
+
+    def _get_legends_ranking(self, player_tag, player_data):
+        """Get legends ranking from ClashKing API with fallback to COC API"""
+        try:
+            # Get combined legends data from ClashKing API (global + local + seasons)
+            clashking_legends = self.clashking_client.get_combined_legends_data(player_tag)
+            if clashking_legends and (clashking_legends.get('global_rank') is not None or clashking_legends.get(
+                    'local_rank') is not None):
+                current_app.logger.info(f"Successfully retrieved legends data from ClashKing for {player_tag}")
+                return clashking_legends
+
+        except Exception as e:
+            current_app.logger.warning(f"ClashKing API failed for {player_tag}: {str(e)}")
+
+        # Fallback to COC API legends data if available
+        legends_data = player_data.get('legends', {})
+        if legends_data:
+            current_app.logger.info(f"Using legends data from COC API for {player_tag}")
+            return {
+                'global_rank': legends_data.get('global_rank'),
+                'local_rank': legends_data.get('local_rank'),
+                'previous_season': legends_data.get('previousSeason'),
+                'best_season': legends_data.get('bestSeason')
+            }
+
+        # No legends data available
+        current_app.logger.info(f"No legends data available for {player_tag}")
+        return {}
 
     def _get_highest_trophy(self, achievements):
         """Extract highest trophy value from achievements"""
