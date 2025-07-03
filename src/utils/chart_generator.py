@@ -1,4 +1,4 @@
-# src/utils/chart_generator.py
+# src/utils/chart_generator.py - CLEAN VERSION (No Debug Lines)
 import matplotlib
 
 matplotlib.use('Agg')
@@ -45,11 +45,11 @@ def generate_chart(player_info, daily_data, final_trophies, average_offense, ave
             fig_height = base_height
 
         fig = plt.figure(figsize=(12, fig_height), facecolor='white')
-        gs = fig.add_gridspec(nrows=3, ncols=1, height_ratios=[0.2, 0.25, 0.55])
+        gs = fig.add_gridspec(nrows=3, ncols=1, height_ratios=[0.20, 0.23, 0.57], hspace=0.025)
     else:
         # Default figure size if no data
         fig = plt.figure(figsize=(12, 7), facecolor='white')
-        gs = fig.add_gridspec(nrows=3, ncols=1, height_ratios=[0.2, 0.25, 0.55])
+        gs = fig.add_gridspec(nrows=3, ncols=1, height_ratios=[0.20, 0.23, 0.57], hspace=0.025)
         # Default trophy range for empty data
         min_trophies = 4800
         max_trophies = 5200
@@ -60,14 +60,12 @@ def generate_chart(player_info, daily_data, final_trophies, average_offense, ave
 
     # CRITICAL: Immediately set locators to prevent MaxTicks error
     ax_chart.yaxis.set_major_locator(ticker.MaxNLocator(nbins=10))
-
-    # This special step prevents the date-related MaxTicks error
     ax_chart.xaxis.set_major_locator(ticker.MaxNLocator(nbins=10))
 
     for ax in [ax_top, ax_middle]:
         ax.set_axis_off()
 
-    # Top banner
+    # Top banner with improved layout
     ax_top.set_xlim(0, 1)
     ax_top.set_ylim(0, 1)
 
@@ -78,43 +76,98 @@ def generate_chart(player_info, daily_data, final_trophies, average_offense, ave
     league_icon_url = player_info.get('leagueIconUrl', '')
     clan_badge_url = player_info.get('clanBadgeUrl', '')
 
-    if league_icon_url:
-        league_img = fetch_and_resize_image(league_icon_url, (80, 80))
-        ax_top.imshow(league_img, extent=[0.01, 0.07, 0.2, 0.8], aspect='auto')
+    # PLAYER INFO GROUP (Left side, centered around 0.2)
+    player_group_center = 0.10
+    icon_width = 0.08  # Width of icon area
+    icon_height = 0.6  # Height of icon (60% of available height)
+    icon_spacing = 0.03  # Space between icon and text
 
-    ax_top.text(0.09, 0.65, p_name, fontsize=18, fontweight='bold', va='center', ha='left')
-    ax_top.text(0.09, 0.40, p_tag, fontsize=12, va='center', ha='left', color='#555555')
+    if league_icon_url:
+        league_img = fetch_and_resize_image(league_icon_url, (80, 80))  # Back to original size
+        # Position icon: centered around player_group_center, shifted left
+        icon_left = player_group_center - (icon_width / 2) - icon_spacing - 0.02
+        icon_right = icon_left + icon_width
+        icon_bottom = (1 - icon_height) / 2
+        icon_top = icon_bottom + icon_height
+        ax_top.imshow(league_img, extent=[icon_left, icon_right, icon_bottom, icon_top], aspect='auto')
+        text_start_x = icon_right + 0.015
+    else:
+        text_start_x = player_group_center - 0.15
+
+    # Player text (right of icon, with proper spacing)
+    ax_top.text(text_start_x, 0.65, p_name, fontsize=17, fontweight='bold', va='center', ha='left')
+    ax_top.text(text_start_x, 0.35, p_tag, fontsize=12, va='center', ha='left', color='#555555')
+
+    # CLAN INFO GROUP (Right side, centered around 0.75)
+    clan_group_center = 0.85
 
     if clan_badge_url:
-        clan_img = fetch_and_resize_image(clan_badge_url, (80, 80))
-        ax_top.imshow(clan_img, extent=[0.93, 0.99, 0.2, 0.8], aspect='auto')
+        clan_img = fetch_and_resize_image(clan_badge_url, (80, 80))  # Back to original size
+        # Position badge: centered around clan_group_center, shifted right
+        badge_right = clan_group_center + (icon_width / 2) + icon_spacing + 0.02
+        badge_left = badge_right - icon_width
+        badge_bottom = (1 - icon_height) / 2
+        badge_top = badge_bottom + icon_height
+        ax_top.imshow(clan_img, extent=[badge_left, badge_right, badge_bottom, badge_top], aspect='auto')
+        text_end_x = badge_left - 0.015
+    else:
+        text_end_x = clan_group_center + 0.15
 
-    ax_top.text(0.91, 0.65, c_name, fontsize=16, fontweight='bold', va='center', ha='right')
-    ax_top.text(0.91, 0.40, c_tag, fontsize=12, va='center', ha='right', color='#555555')
+    # Clan text (left of badge, with proper spacing)
+    ax_top.text(text_end_x, 0.65, c_name, fontsize=17, fontweight='bold', va='center', ha='right')
+    ax_top.text(text_end_x, 0.35, c_tag, fontsize=12, va='center', ha='right', color='#555555')
 
-    # Middle row
+    # Middle section with improved layout
     ax_middle.set_xlim(0, 1)
     ax_middle.set_ylim(0, 1)
-    ax_middle.text(0.5, 0.75, "Legend League Trophies Progression", fontsize=16, fontweight='bold', va='center',
-                   ha='center')
-    ax_middle.text(0.5, 0.55, player_info.get('seasonStr', ''), fontsize=12, va='center', ha='center', color='#333333')
 
+    # Main title - positioned higher and smaller for compact layout
+    ax_middle.text(0.5, 0.85, "Legend League Trophies Progression", fontsize=18, fontweight='bold',
+                   va='center', ha='center')
+
+    # Season info - positioned closer to title and smaller
+    ax_middle.text(0.5, 0.60, player_info.get('seasonStr', ''), fontsize=14, va='center',
+                   ha='center', color='#333333')
+
+    # Stats section with improved spacing and styling
     stats = [
         ("Avg Offense", f"+{average_offense:.0f}"),
         ("Avg Defense", f"-{average_defense:.0f}"),
         ("Avg Net Gain", f"{'+%.0f' % net_gain if net_gain >= 0 else '%.0f' % net_gain}"),
         ("Final Trophies", f"{final_trophies}")
     ]
-    x_positions = [0.1, 0.33, 0.57, 0.80]
-    for (label, value), x in zip(stats, x_positions):
+
+    # Position stats more centrally with better spacing
+    total_stats_width = 0.8  # Use 80% of available width
+    start_x = (1 - total_stats_width) / 2  # Center the stats
+    stat_spacing = total_stats_width / len(stats)
+
+    for i, (label, value) in enumerate(stats):
+        x_pos = start_x + (i * stat_spacing) + (stat_spacing / 2)
+
+        # Color code the stat boxes
+        if "Offense" in label:
+            box_color = '#e8f5e8'
+            border_color = '#4caf50'
+        elif "Defense" in label:
+            box_color = '#ffe8e8'
+            border_color = '#f44336'
+        elif "Net Gain" in label:
+            box_color = '#e8f4fd' if net_gain >= 0 else '#ffe8e8'
+            border_color = '#2196f3' if net_gain >= 0 else '#f44336'
+        else:  # Final Trophies
+            box_color = '#fff3e0'
+            border_color = '#ff9800'
+
         ax_middle.text(
-            x, 0.25, f"{label}: {value}", fontsize=12, fontweight='bold',
-            va='center', ha='left',
-            bbox=dict(boxstyle='round,pad=0.4', fc='white', ec='black', alpha=0.8)
+            x_pos, 0.25, f"{label}\n{value}", fontsize=12, fontweight='bold',
+            va='center', ha='center',
+            bbox=dict(boxstyle='round,pad=0.3', facecolor=box_color,
+                      edgecolor=border_color, alpha=0.9, linewidth=1.5)
         )
 
-    # Bottom chart
-    ax_chart.set_facecolor('white')
+    # Bottom chart with improved styling
+    ax_chart.set_facecolor('#fafafa')  # Light background
     x_dates = []
     y_trophies = []
 
@@ -146,8 +199,10 @@ def generate_chart(player_info, daily_data, final_trophies, average_offense, ave
         # Convert dates to matplotlib format
         x_dates_mpl = [mdates.date2num(datetime.datetime.combine(d, datetime.time())) for d in x_dates]
 
-        # Plot the data directly with numbers and then format the axis
-        ax_chart.plot(x_dates_mpl, y_trophies, marker='o', markersize=4, linewidth=2, color='#007bff', label='Trophies')
+        # Plot with improved styling
+        ax_chart.plot(x_dates_mpl, y_trophies, marker='o', markersize=5, linewidth=2.5,
+                      color='#1976d2', label='Trophies', markerfacecolor='white',
+                      markeredgecolor='#1976d2', markeredgewidth=2)
 
         # Calculate appropriate y-axis limits
         min_trophies = min(y_trophies)
@@ -207,14 +262,24 @@ def generate_chart(player_info, daily_data, final_trophies, average_offense, ave
         ax_chart.set_ylim([4800, 5200])
         ax_chart.yaxis.set_major_locator(ticker.MultipleLocator(100))
 
-    ax_chart.set_xlabel("Date", fontsize=12, fontweight='bold')
-    ax_chart.set_ylabel("Trophies", fontsize=12, fontweight='bold')
-    plt.setp(ax_chart.xaxis.get_majorticklabels(), rotation=45, ha='right')
-    ax_chart.grid(color='gray', linestyle='--', linewidth=0.5, alpha=0.7)
+    # Improved axis labels and styling
+    ax_chart.set_xlabel("Date", fontsize=13, fontweight='bold', color='#333')
+    ax_chart.set_ylabel("Trophies", fontsize=13, fontweight='bold', color='#333')
+    plt.setp(ax_chart.xaxis.get_majorticklabels(), rotation=45, ha='right', fontsize=10)
+    plt.setp(ax_chart.yaxis.get_majorticklabels(), fontsize=10)
 
-    fig.tight_layout()
+    # Improved grid
+    ax_chart.grid(color='gray', linestyle='--', linewidth=0.6, alpha=0.6)
+    ax_chart.set_axisbelow(True)  # Put grid behind the plot
+
+    # Add subtle border around the chart
+    for spine in ax_chart.spines.values():
+        spine.set_edgecolor('#cccccc')
+        spine.set_linewidth(1)
+
+    # fig.tight_layout(pad=0.5)  # Reduced padding for tighter layout
     buf = BytesIO()
-    plt.savefig(buf, format='png', dpi=100)
+    plt.savefig(buf, format='png', dpi=120, bbox_inches='tight', facecolor='white', pad_inches=0.1)
     buf.seek(0)
     plt.close(fig)
     return buf
@@ -223,7 +288,7 @@ def generate_chart(player_info, daily_data, final_trophies, average_offense, ave
 def fetch_and_resize_image(url, size):
     """Fetch an image from a URL and resize it. Returns a PIL Image."""
     try:
-        resp = requests.get(url)
+        resp = requests.get(url, timeout=10)
         resp.raise_for_status()
         img = Image.open(BytesIO(resp.content))
         img = img.resize(size, Image.Resampling.LANCZOS)
