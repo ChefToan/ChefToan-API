@@ -3,7 +3,7 @@ import datetime
 from datetime import timezone, timedelta
 import calendar
 import config
-from src.services.redis_service import cached
+from src.core.redis_service import cached
 
 
 class ClashPerkClient:

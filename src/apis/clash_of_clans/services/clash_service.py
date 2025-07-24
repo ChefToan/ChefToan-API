@@ -1,8 +1,8 @@
 # src/services/clash_service.py
 import requests
 import config
-from src.services.redis_service import cached
-from src.services.retry_utils import retry_request
+from src.core.redis_service import cached
+from src.core.retry_utils import retry_request
 
 
 class ClashApiClient:

@@ -1,7 +1,7 @@
 from collections import OrderedDict
 import logging
-from src.services.redis_service import cached
-from src.services.clashking_service import ClashKingClient
+from src.core.redis_service import cached
+from src.apis.clash_of_clans.services.clashking_service import ClashKingClient
 import config
 
 

@@ -1,8 +1,8 @@
 import datetime
 from datetime import timezone, timedelta
-from src.services.redis_service import cached
-from src.services.clash_service import ClashApiClient
-from src.services.clashperk_service import ClashPerkClient
+from src.core.redis_service import cached
+from src.apis.clash_of_clans.services.clash_service import ClashApiClient
+from src.apis.clash_of_clans.services.clashperk_service import ClashPerkClient
 import config
 
 

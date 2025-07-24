@@ -3,8 +3,8 @@ import requests
 import json
 import config
 import logging
-from src.services.redis_service import cached
-from src.services.retry_utils import retry_request
+from src.core.redis_service import cached
+from src.core.retry_utils import retry_request
 
 
 class ClashKingClient:

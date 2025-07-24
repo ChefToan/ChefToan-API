@@ -1,46 +1,69 @@
 # app.py
 from fastapi import FastAPI
-from fastapi.responses import RedirectResponse
-from src.api.routes import register_routes
+from fastapi.responses import RedirectResponse, JSONResponse
 import config
 
 def create_app():
     app = FastAPI(
-        title="Clash of Clans Legend League API",
+        title="ChefToan's API",
         description="""
-        API for tracking Clash of Clans player statistics and trophy progression.
+        🚀 ChefToan's Multi-Purpose API Platform
         
-        **🚀 Getting Started:**
-        1. Use the `/player/essentials` endpoint for optimized player data
-        2. Use the `/player` endpoint for complete player information
-        3. Use the `/chart` endpoint to generate trophy progression charts
+        A modular API platform hosting various services and endpoints.
         
-        **📊 Available Endpoints:**
-        - **Player Essentials**: Optimized data for mobile applications
-        - **Full Player Data**: Complete player information from Clash of Clans API
-        - **Trophy Charts**: Visual trophy progression for Legend League players
+        📊 Available API Modules:
+        - Clash of Clans: Player data, trophy charts, and statistics
+        - Test: API testing endpoint with optimized image serving
+        - More APIs: Additional modules can be easily added
         
-        **⚡ Features:**
+        ⚡ Features:
         - High-performance caching for fast response times
+        - Modular architecture for easy expansion
         - Optimized data structures for mobile apps
-        - Real-time trophy progression tracking
+        - Real-time data tracking and processing
+        
+        🎯 Getting Started:
+        1. Browse available API modules below
+        2. Check the documentation for each endpoint
+        3. Use the interactive API explorer to test endpoints
         """,
-        version="1.0.0",
+        version="2.0.0",
         docs_url="/",
         redoc_url="/redoc"
     )
 
     # Initialize Redis if it's enabled
     if config.REDIS_ENABLED:
-        from src.services.redis_service import init_redis
+        from src.core.redis_service import init_redis
         init_redis(app)
         print("Redis caching enabled")
 
     # Register API routes
     register_routes(app)
 
-    print("API server initialized successfully")
+    # Add health check endpoint
+    @app.get("/health", tags=["System"])
+    async def health_check():
+        """Health check endpoint"""
+        return {"status": "healthy", "service": "ChefToan's API"}
+
+    print("ChefToan's API server initialized successfully")
     return app
+
+def register_routes(app):
+    """Register all API routes from different modules"""
+    
+    # Import and register Clash of Clans API routes
+    from src.apis.clash_of_clans.routes import clash_router
+    app.include_router(clash_router)
+    
+    # Import and register Test API routes
+    from src.apis.test.routes import test_router
+    app.include_router(test_router)
+    
+    # Future API modules can be added here
+    # from src.apis.other_api.routes import other_router
+    # app.include_router(other_router)
 
 app = create_app()
 
