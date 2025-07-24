@@ -1,6 +1,6 @@
 # src/services/clash_service.py
 import requests
-from flask import current_app
+import config
 from src.services.redis_service import cached
 from src.services.retry_utils import retry_request
 
@@ -8,9 +8,9 @@ from src.services.retry_utils import retry_request
 class ClashApiClient:
     """Client for Clash of Clans API"""
 
-    def __init__(self):
-        self.base_url = current_app.config['COC_API_BASE_URL']
-        self.api_token = current_app.config['COC_API_TOKEN']
+    def __init__(self, api_token: str = None):
+        self.base_url = config.COC_API_BASE_URL
+        self.api_token = api_token or config.COC_API_TOKEN
         self.headers = {'Authorization': f'Bearer {self.api_token}'}
 
     def _format_tag(self, player_tag):
@@ -32,13 +32,13 @@ class ClashApiClient:
             return response.json()
         except requests.exceptions.HTTPError as e:
             if e.response.status_code == 503:
-                current_app.logger.error(f"Clash of Clans API is currently unavailable: {str(e)}")
+                print(f"Clash of Clans API is currently unavailable: {str(e)}")
                 raise ServiceUnavailableError("Clash of Clans API is currently unavailable. Please try again later.")
             elif e.response.status_code == 403:
-                current_app.logger.error(f"API authentication error: {str(e)}")
+                print(f"API authentication error: {str(e)}")
                 raise AuthenticationError("API authentication failed. Please check your API token.")
             elif e.response.status_code == 404:
-                current_app.logger.error(f"Player not found: {player_tag}")
+                print(f"Player not found: {player_tag}")
                 raise PlayerNotFoundError(f"Player {player_tag} not found.")
             else:
                 raise
@@ -56,7 +56,7 @@ class ClashApiClient:
             return response.json()
         except requests.exceptions.HTTPError as e:
             if e.response.status_code == 503:
-                current_app.logger.error(f"Clash of Clans API is currently unavailable: {str(e)}")
+                print(f"Clash of Clans API is currently unavailable: {str(e)}")
                 raise ServiceUnavailableError("Clash of Clans API is currently unavailable. Please try again later.")
             else:
                 raise
@@ -74,7 +74,7 @@ class ClashApiClient:
             return response.json()
         except requests.exceptions.HTTPError as e:
             if e.response.status_code == 503:
-                current_app.logger.error(f"Clash of Clans API is currently unavailable: {str(e)}")
+                print(f"Clash of Clans API is currently unavailable: {str(e)}")
                 raise ServiceUnavailableError("Clash of Clans API is currently unavailable. Please try again later.")
             else:
                 raise

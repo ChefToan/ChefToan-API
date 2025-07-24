@@ -2,16 +2,16 @@ import requests
 import datetime
 from datetime import timezone, timedelta
 import calendar
-from flask import current_app
+import config
 from src.services.redis_service import cached
 
 
 class ClashPerkClient:
     """Client for ClashPerk API"""
 
-    def __init__(self):
-        self.base_url = current_app.config['CLASHPERK_BASE_URL']
-        self.api_token = current_app.config['CLASHPERK_API_TOKEN']
+    def __init__(self, api_token: str = None):
+        self.base_url = config.CLASHPERK_BASE_URL
+        self.api_token = api_token or config.CLASHPERK_API_TOKEN
         self.headers = {'Authorization': f'Bearer {self.api_token}'}
 
     def _format_tag(self, player_tag):

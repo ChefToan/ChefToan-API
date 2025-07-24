@@ -1,7 +1,8 @@
 from collections import OrderedDict
+import logging
 from src.services.redis_service import cached
 from src.services.clashking_service import ClashKingClient
-from flask import current_app
+import config
 
 
 class PlayerEssentialsService:
@@ -129,16 +130,16 @@ class PlayerEssentialsService:
             clashking_legends = self.clashking_client.get_combined_legends_data(player_tag)
             if clashking_legends and (clashking_legends.get('global_rank') is not None or clashking_legends.get(
                     'local_rank') is not None):
-                current_app.logger.info(f"Successfully retrieved legends data from ClashKing for {player_tag}")
+                logging.info(f"Successfully retrieved legends data from ClashKing for {player_tag}")
                 return clashking_legends
 
         except Exception as e:
-            current_app.logger.warning(f"ClashKing API failed for {player_tag}: {str(e)}")
+            logging.warning(f"ClashKing API failed for {player_tag}: {str(e)}")
 
         # Fallback to COC API legends data if available
         legends_data = player_data.get('legends', {})
         if legends_data:
-            current_app.logger.info(f"Using legends data from COC API for {player_tag}")
+            logging.info(f"Using legends data from COC API for {player_tag}")
             return {
                 'global_rank': legends_data.get('global_rank'),
                 'local_rank': legends_data.get('local_rank'),
@@ -147,7 +148,7 @@ class PlayerEssentialsService:
             }
 
         # No legends data available
-        current_app.logger.info(f"No legends data available for {player_tag}")
+        logging.info(f"No legends data available for {player_tag}")
         return {}
 
     def _get_highest_trophy(self, achievements):

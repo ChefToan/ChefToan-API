@@ -1,29 +1,28 @@
 # src/api/player.py
-from flask import Blueprint, jsonify, current_app, request, Response
+from fastapi import APIRouter, HTTPException, Query
+from fastapi.responses import JSONResponse
 import json
 import time
+import config
 from src.services.clash_service import ClashApiClient
 from src.services.player_essentials_service import PlayerEssentialsService
 from src.services.redis_service import cache_get, cache_set
 
-player_bp = Blueprint('player', __name__)
+player_router = APIRouter(tags=["Player Data"])
 
 
-@player_bp.route('/player')
-def get_player_info():
+@player_router.get("/player", summary="Get full player information", description="Get complete player data directly from Clash of Clans API")
+async def get_player_info(
+    tag: str = Query(..., description="Player tag (with or without # prefix)")
+):
     """Get full player information directly from Clash of Clans API"""
     start_time = time.time()
 
     try:
-        # Get player tag from query parameter
-        player_tag = request.args.get('tag')
-        if not player_tag:
-            return jsonify({"error": "Missing player tag. Use ?tag=PLAYERTAG"}), 400
-
         # Standardize the player tag
-        if not player_tag.startswith('#'):
-            player_tag = '#' + player_tag
-        player_tag = player_tag.upper()
+        if not tag.startswith('#'):
+            tag = '#' + tag
+        player_tag = tag.upper()
 
         # Check cache first
         cache_key = f"player_full:{player_tag}"
@@ -31,19 +30,20 @@ def get_player_info():
 
         if cached_data is not None:
             response_time = time.time() - start_time
-            current_app.logger.info(f"CACHED player data served in {response_time:.3f}s for {player_tag}")
+            print(f"CACHED player data served in {response_time:.3f}s for {player_tag}")
 
             # Add performance headers
-            response = jsonify(cached_data)
-            response.headers['X-Cache'] = 'HIT'
-            response.headers['X-Response-Time'] = f"{response_time:.3f}s"
-            return response
+            headers = {
+                'X-Cache': 'HIT',
+                'X-Response-Time': f"{response_time:.3f}s"
+            }
+            return JSONResponse(content=cached_data, headers=headers)
 
         # Cache miss - fetch from API
-        current_app.logger.info(f"Cache MISS for full player data: {player_tag}")
+        print(f"Cache MISS for full player data: {player_tag}")
 
-        # Initialize the Clash API client
-        clash_client = ClashApiClient()
+        # Initialize the Clash API client with static API key from config
+        clash_client = ClashApiClient(api_token=config.COC_API_TOKEN)
 
         # Get player data
         api_start = time.time()
@@ -54,37 +54,34 @@ def get_player_info():
         cache_set(cache_key, player_data, timeout=300)
 
         response_time = time.time() - start_time
-        current_app.logger.info(
-            f"FRESH player data served in {response_time:.3f}s (API: {api_time:.3f}s) for {player_tag}")
+        print(f"FRESH player data served in {response_time:.3f}s (API: {api_time:.3f}s) for {player_tag}")
 
         # Add performance headers
-        response = jsonify(player_data)
-        response.headers['X-Cache'] = 'MISS'
-        response.headers['X-Response-Time'] = f"{response_time:.3f}s"
-        response.headers['X-API-Time'] = f"{api_time:.3f}s"
-        return response
+        headers = {
+            'X-Cache': 'MISS',
+            'X-Response-Time': f"{response_time:.3f}s",
+            'X-API-Time': f"{api_time:.3f}s"
+        }
+        return JSONResponse(content=player_data, headers=headers)
 
     except Exception as e:
         response_time = time.time() - start_time
-        current_app.logger.error(f"Error fetching player data in {response_time:.3f}s: {str(e)}")
-        return jsonify({"error": str(e)}), 500
+        print(f"Error fetching player data in {response_time:.3f}s: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
-@player_bp.route('/player/essentials')
-def get_player_essentials():
+@player_router.get("/player/essentials", summary="Get essential player data", description="Get optimized player data for mobile apps - smaller payload, faster loading")
+async def get_player_essentials(
+    tag: str = Query(..., description="Player tag (with or without # prefix)")
+):
     """Get essential player information optimized for mobile app"""
     start_time = time.time()
 
     try:
-        # Get player tag from query parameter
-        player_tag = request.args.get('tag')
-        if not player_tag:
-            return jsonify({"error": "Missing player tag. Use ?tag=PLAYERTAG"}), 400
-
         # Standardize the player tag
-        if not player_tag.startswith('#'):
-            player_tag = '#' + player_tag
-        player_tag = player_tag.upper()
+        if not tag.startswith('#'):
+            tag = '#' + tag
+        player_tag = tag.upper()
 
         # Check cache for processed essentials data
         essentials_cache_key = f"player_essentials:{player_tag}"
@@ -92,20 +89,21 @@ def get_player_essentials():
 
         if cached_essentials is not None:
             response_time = time.time() - start_time
-            current_app.logger.info(f"CACHED essentials data served in {response_time:.3f}s for {player_tag}")
+            print(f"CACHED essentials data served in {response_time:.3f}s for {player_tag}")
 
             # Use custom JSON serialization to preserve OrderedDict order
             json_str = json.dumps(cached_essentials, indent=2)
-            response = Response(json_str, mimetype='application/json')
-            response.headers['X-Cache'] = 'HIT'
-            response.headers['X-Response-Time'] = f"{response_time:.3f}s"
-            return response
+            headers = {
+                'X-Cache': 'HIT',
+                'X-Response-Time': f"{response_time:.3f}s"
+            }
+            return JSONResponse(content=cached_essentials, headers=headers, media_type='application/json')
 
         # Cache miss - need to fetch and process data
-        current_app.logger.info(f"Cache MISS for essentials data: {player_tag}")
+        print(f"Cache MISS for essentials data: {player_tag}")
 
-        # Initialize services
-        clash_client = ClashApiClient()
+        # Initialize services with static API key from config
+        clash_client = ClashApiClient(api_token=config.COC_API_TOKEN)
         essentials_service = PlayerEssentialsService()
 
         # Get player data (this call itself should be cached)
@@ -122,21 +120,21 @@ def get_player_essentials():
         cache_set(essentials_cache_key, essential_data, timeout=300)
 
         response_time = time.time() - start_time
-        current_app.logger.info(
+        print(
             f"FRESH essentials data served in {response_time:.3f}s "
             f"(API: {api_time:.3f}s, Processing: {processing_time:.3f}s) for {player_tag}"
         )
 
         # Use custom JSON serialization to preserve OrderedDict order
-        json_str = json.dumps(essential_data, indent=2)
-        response = Response(json_str, mimetype='application/json')
-        response.headers['X-Cache'] = 'MISS'
-        response.headers['X-Response-Time'] = f"{response_time:.3f}s"
-        response.headers['X-API-Time'] = f"{api_time:.3f}s"
-        response.headers['X-Processing-Time'] = f"{processing_time:.3f}s"
-        return response
+        headers = {
+            'X-Cache': 'MISS',
+            'X-Response-Time': f"{response_time:.3f}s",
+            'X-API-Time': f"{api_time:.3f}s",
+            'X-Processing-Time': f"{processing_time:.3f}s"
+        }
+        return JSONResponse(content=essential_data, headers=headers, media_type='application/json')
 
     except Exception as e:
         response_time = time.time() - start_time
-        current_app.logger.error(f"Error fetching player essentials in {response_time:.3f}s: {str(e)}")
-        return jsonify({"error": str(e)}), 500
+        print(f"Error fetching player essentials in {response_time:.3f}s: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))

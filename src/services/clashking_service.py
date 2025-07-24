@@ -1,7 +1,8 @@
 # src/services/clashking_service.py
 import requests
 import json
-from flask import current_app
+import config
+import logging
 from src.services.redis_service import cached
 from src.services.retry_utils import retry_request
 
@@ -37,7 +38,7 @@ class ClashKingClient:
             # Extract the rank from the response
             global_rank = data.get('rank')
             if global_rank is not None:
-                current_app.logger.info(f"Retrieved global rank {global_rank} for {player_tag}")
+                logging.info(f"Retrieved global rank {global_rank} for {player_tag}")
                 return {
                     'global_rank': global_rank,
                     'name': data.get('name'),
@@ -45,24 +46,24 @@ class ClashKingClient:
                     'townhall': data.get('townhall')
                 }
             else:
-                current_app.logger.warning(f"No global rank found for {player_tag}")
+                logging.warning(f"No global rank found for {player_tag}")
                 return {}
 
         except requests.exceptions.HTTPError as e:
             if e.response.status_code == 404:
-                current_app.logger.warning(f"Player {player_tag} not found in ClashKing legends ranking")
+                logging.warning(f"Player {player_tag} not found in ClashKing legends ranking")
                 return {}
             elif e.response.status_code == 503:
-                current_app.logger.error(f"ClashKing ranking API unavailable: {str(e)}")
+                logging.error(f"ClashKing ranking API unavailable: {str(e)}")
                 return {}
             else:
-                current_app.logger.error(f"ClashKing ranking API error: {str(e)}")
+                logging.error(f"ClashKing ranking API error: {str(e)}")
                 return {}
         except requests.exceptions.Timeout as e:
-            current_app.logger.error(f"ClashKing ranking API timeout: {str(e)}")
+            logging.error(f"ClashKing ranking API timeout: {str(e)}")
             return {}
         except Exception as e:
-            current_app.logger.error(f"Unexpected error from ClashKing ranking API: {str(e)}")
+            logging.error(f"Unexpected error from ClashKing ranking API: {str(e)}")
             return {}
 
     @cached(timeout=900, use_stale_on_error=True)  # Cache for 15 minutes
@@ -83,18 +84,18 @@ class ClashKingClient:
                 return self._parse_stats_streaming(url)
             except ImportError:
                 # Fallback to regular parsing
-                current_app.logger.info("ijson not available, using regular JSON parsing")
+                logging.info("ijson not available, using regular JSON parsing")
                 return self._parse_stats_regular(url)
 
         except requests.exceptions.HTTPError as e:
             if e.response.status_code == 404:
-                current_app.logger.warning(f"Player {player_tag} not found in ClashKing stats")
+                logging.warning(f"Player {player_tag} not found in ClashKing stats")
                 return {}
             else:
-                current_app.logger.error(f"ClashKing stats API error: {str(e)}")
+                logging.error(f"ClashKing stats API error: {str(e)}")
                 return {}
         except Exception as e:
-            current_app.logger.error(f"Error getting stats data: {str(e)}")
+            logging.error(f"Error getting stats data: {str(e)}")
             return {}
 
     def _parse_stats_streaming(self, url):

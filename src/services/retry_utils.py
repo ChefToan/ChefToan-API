@@ -2,7 +2,6 @@
 import time
 import requests
 from functools import wraps
-from flask import current_app
 
 
 def retry_request(max_retries=3, backoff_factor=0.5, status_forcelist=(500, 502, 503, 504)):
@@ -29,7 +28,7 @@ def retry_request(max_retries=3, backoff_factor=0.5, status_forcelist=(500, 502,
                         raise
 
                     wait_time = backoff_factor * (2 ** retries)
-                    current_app.logger.warning(
+                    print(
                         f"Request failed with status {status_code}. "
                         f"Retrying in {wait_time:.2f} seconds... "
                         f"(Attempt {retries + 1}/{max_retries})"
@@ -41,7 +40,7 @@ def retry_request(max_retries=3, backoff_factor=0.5, status_forcelist=(500, 502,
                         raise
 
                     wait_time = backoff_factor * (2 ** retries)
-                    current_app.logger.warning(
+                    print(
                         f"Connection error: {str(e)}. "
                         f"Retrying in {wait_time:.2f} seconds... "
                         f"(Attempt {retries + 1}/{max_retries})"

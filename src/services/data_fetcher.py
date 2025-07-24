@@ -3,7 +3,7 @@ from datetime import timezone, timedelta
 from src.services.redis_service import cached
 from src.services.clash_service import ClashApiClient
 from src.services.clashperk_service import ClashPerkClient
-from flask import current_app
+import config
 
 
 @cached(timeout=1800, use_stale_on_error=True)  # Cache for 30 minutes, use stale data on error
@@ -11,6 +11,12 @@ def get_player_data(player_tag):
     """Fetch and compute daily data from CoC & ClashPerk APIs."""
     clash_client = ClashApiClient()
     perk_client = ClashPerkClient()
+
+@cached(timeout=1800, use_stale_on_error=True)  # Cache for 30 minutes, use stale data on error
+def get_player_data_with_keys(player_tag, coc_api_key, clashperk_api_key=""):
+    """Fetch and compute daily data from CoC & ClashPerk APIs with provided keys."""
+    clash_client = ClashApiClient(api_token=coc_api_key)
+    perk_client = ClashPerkClient(api_token=clashperk_api_key) if clashperk_api_key else None
 
     try:
         # Get player data from CoC API
@@ -35,11 +41,14 @@ def get_player_data(player_tag):
 
         # Get legend league attacks from ClashPerk API
         try:
-            perk_json = perk_client.get_legend_attacks(player_tag)
+            if perk_client:
+                perk_json = perk_client.get_legend_attacks(player_tag)
+            else:
+                raise Exception("No ClashPerk API key provided")
         except Exception as e:
             # If ClashPerk API fails, we can still generate a partial chart
             # using just the basic player data from CoC API
-            current_app.logger.warning(f"ClashPerk API error, using fallback data: {str(e)}")
+            print(f"ClashPerk API error, using fallback data: {str(e)}")
             perk_json = {
                 'logs': [],
                 'trophies': player_json.get('trophies', 0),
@@ -149,7 +158,7 @@ def get_player_data(player_tag):
         # Ensure the final trophy value is accurate
         # If we have logs, the last value should match the final trophy count from the API
         if sorted_logs and final_trophies != current_trophies:
-            current_app.logger.warning(
+            print(
                 f"Trophy mismatch: calculated={current_trophies}, reported={final_trophies}. Using reported value."
             )
             # Adjust the last day with trophy data to match the final value
@@ -192,5 +201,5 @@ def get_player_data(player_tag):
 
     except Exception as e:
         # Add more context to the error
-        current_app.logger.error(f"Error fetching data for player {player_tag}: {str(e)}")
+        print(f"Error fetching data for player {player_tag}: {str(e)}")
         raise

@@ -1,31 +1,27 @@
 # src/api/chart.py - OPTIMIZED VERSION
-from flask import Blueprint, send_file, current_app, request, Response
-from src.services.data_fetcher import get_player_data
+from fastapi import APIRouter, HTTPException, Query
+from fastapi.responses import StreamingResponse
+from src.services.data_fetcher import get_player_data_with_keys
 from src.utils.chart_generator import generate_chart
 from src.services.clash_service import ServiceUnavailableError, PlayerNotFoundError, AuthenticationError
 from src.services.redis_service import cache_get, cache_set
+import config
 import time
+from io import BytesIO
 
-chart_bp = Blueprint('chart', __name__)
+chart_router = APIRouter(tags=["Charts"])
 
 
-@chart_bp.route('/chart')
-def get_player_chart():
+@chart_router.get("/chart", summary="Generate player chart", description="Generate and return a trophy progression chart (for Legend League players only)")
+async def get_player_chart(
+    tag: str = Query(..., description="Player tag (with or without # prefix)")
+):
     """Generate and return a chart for the player's trophy progress with aggressive caching"""
 
-    # Get player tag from query parameter
-    player_tag = request.args.get('tag')
-    if not player_tag:
-        return generate_error_image(
-            "Missing Player Tag",
-            "Please provide a player tag using ?tag=PLAYERTAG",
-            400
-        )
-
     # Standardize the player tag
-    if not player_tag.startswith('#'):
-        player_tag = '#' + player_tag
-    player_tag = player_tag.upper()
+    if not tag.startswith('#'):
+        tag = '#' + tag
+    player_tag = tag.upper()
 
     # PERFORMANCE OPTIMIZATION: Check for cached chart image first
     chart_cache_key = f"chart_image:{player_tag}"
@@ -33,26 +29,29 @@ def get_player_chart():
     # Try to get cached chart (cache for 10 minutes for charts)
     cached_chart = cache_get(chart_cache_key)
     if cached_chart is not None:
-        current_app.logger.info(f"Serving cached chart for {player_tag}")
+        print(f"Serving cached chart for {player_tag}")
         try:
-            from io import BytesIO
             import base64
 
             # Decode the base64 cached image
             chart_buf = BytesIO(base64.b64decode(cached_chart))
-            return send_file(chart_buf, mimetype='image/png')
+            return StreamingResponse(chart_buf, media_type='image/png')
         except Exception as e:
-            current_app.logger.warning(f"Failed to serve cached chart: {str(e)}")
+            print(f"Failed to serve cached chart: {str(e)}")
             # Continue to generate new chart if cached version fails
 
     try:
         start_time = time.time()
 
-        # Get player data (this should be cached by the data_fetcher)
-        player_info, daily_data, final_trophies, avg_offense, avg_defense, net_gain = get_player_data(player_tag)
+        # Get player data with static API keys from config
+        player_info, daily_data, final_trophies, avg_offense, avg_defense, net_gain = get_player_data_with_keys(
+            player_tag, 
+            config.COC_API_TOKEN, 
+            config.CLASHPERK_API_TOKEN
+        )
 
         data_fetch_time = time.time() - start_time
-        current_app.logger.info(f"Data fetch took {data_fetch_time:.3f}s for {player_tag}")
+        print(f"Data fetch took {data_fetch_time:.3f}s for {player_tag}")
 
         # Generate chart
         chart_start = time.time()
@@ -66,7 +65,7 @@ def get_player_chart():
         )
 
         chart_gen_time = time.time() - chart_start
-        current_app.logger.info(f"Chart generation took {chart_gen_time:.3f}s for {player_tag}")
+        print(f"Chart generation took {chart_gen_time:.3f}s for {player_tag}")
 
         # PERFORMANCE OPTIMIZATION: Cache the generated chart image
         try:
@@ -78,17 +77,17 @@ def get_player_chart():
             # Cache as base64 string for 10 minutes (600 seconds)
             chart_b64 = base64.b64encode(chart_data).decode('utf-8')
             cache_set(chart_cache_key, chart_b64, timeout=600)
-            current_app.logger.info(f"Cached chart for {player_tag}")
+            print(f"Cached chart for {player_tag}")
         except Exception as e:
-            current_app.logger.warning(f"Failed to cache chart: {str(e)}")
+            print(f"Failed to cache chart: {str(e)}")
 
         total_time = time.time() - start_time
-        current_app.logger.info(f"Total chart request took {total_time:.3f}s for {player_tag}")
+        print(f"Total chart request took {total_time:.3f}s for {player_tag}")
 
-        return send_file(chart_buf, mimetype='image/png')
+        return StreamingResponse(chart_buf, media_type='image/png')
 
     except ServiceUnavailableError as e:
-        current_app.logger.error(f"External API unavailable: {str(e)}")
+        print(f"External API unavailable: {str(e)}")
         return generate_error_image(
             "Service Temporarily Unavailable",
             "The Clash of Clans API is currently down. Please try again later.",
@@ -96,7 +95,7 @@ def get_player_chart():
         )
 
     except PlayerNotFoundError as e:
-        current_app.logger.error(f"Player not found: {str(e)}")
+        print(f"Player not found: {str(e)}")
         return generate_error_image(
             "Player Not Found",
             f"Could not find player with tag {player_tag}. Please check the tag and try again.",
@@ -104,7 +103,7 @@ def get_player_chart():
         )
 
     except AuthenticationError as e:
-        current_app.logger.error(f"API authentication error: {str(e)}")
+        print(f"API authentication error: {str(e)}")
         return generate_error_image(
             "API Authentication Error",
             "Failed to authenticate with the Clash of Clans API. Please check API token configuration.",
@@ -112,9 +111,9 @@ def get_player_chart():
         )
 
     except Exception as e:
-        current_app.logger.error(f"Error generating chart: {str(e)}")
+        print(f"Error generating chart: {str(e)}")
         import traceback
-        current_app.logger.error(traceback.format_exc())
+        print(traceback.format_exc())
         return generate_error_image(
             "Error Generating Chart",
             "An unexpected error occurred. Please try again later.",
@@ -127,7 +126,6 @@ def generate_error_image(title, message, status_code):
     import matplotlib
     matplotlib.use('Agg')
     import matplotlib.pyplot as plt
-    from io import BytesIO
 
     # Use a smaller figure for error images
     fig, ax = plt.subplots(figsize=(8, 4))
@@ -142,4 +140,4 @@ def generate_error_image(title, message, status_code):
     buf.seek(0)
     plt.close(fig)
 
-    return send_file(buf, mimetype='image/png'), status_code
+    return StreamingResponse(buf, media_type='image/png', status_code=status_code)

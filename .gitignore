@@ -20,7 +20,7 @@ env/
 
 # Environment variables
 .env
-.env.*
+.env
 
 # IDE specific files
 .idea/
