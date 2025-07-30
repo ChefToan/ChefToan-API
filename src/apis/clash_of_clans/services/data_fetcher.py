@@ -1,5 +1,6 @@
 import datetime
 from datetime import timezone, timedelta
+import pytz
 from src.core.redis_service import cached
 from src.apis.clash_of_clans.services.clash_service import ClashApiClient
 from src.apis.clash_of_clans.services.clashperk_service import ClashPerkClient
@@ -9,8 +10,7 @@ import config
 @cached(timeout=1800, use_stale_on_error=True)  # Cache for 30 minutes, use stale data on error
 def get_player_data(player_tag):
     """Fetch and compute daily data from CoC & ClashPerk APIs."""
-    clash_client = ClashApiClient()
-    perk_client = ClashPerkClient()
+    return get_player_data_with_keys(player_tag, config.COC_API_KEY, config.CLASHPERK_API_KEY)
 
 @cached(timeout=1800, use_stale_on_error=True)  # Cache for 30 minutes, use stale data on error
 def get_player_data_with_keys(player_tag, coc_api_key, clashperk_api_key=""):
@@ -56,6 +56,9 @@ def get_player_data_with_keys(player_tag, coc_api_key, clashperk_api_key=""):
                 'seasonId': ''
             }
 
+        # Clash of Clans Legend League resets at 5:00 AM UTC daily
+        utc_tz = pytz.UTC
+        
         logs = perk_json.get('logs', [])
         final_trophies = perk_json.get('trophies', 0)
         initial_trophies = perk_json.get('initial', 0)
@@ -65,6 +68,11 @@ def get_player_data_with_keys(player_tag, coc_api_key, clashperk_api_key=""):
         if season_id:
             try:
                 start_date, end_date = perk_client.get_season_start_end(season_id)
+                # Ensure dates are in UTC
+                if start_date.tzinfo != timezone.utc:
+                    start_date = start_date.astimezone(utc_tz)
+                if end_date.tzinfo != timezone.utc:
+                    end_date = end_date.astimezone(utc_tz)
                 season_str = perk_client.make_season_string(season_id, start_date, end_date)
             except Exception:
                 # Fallback if season calculation fails
@@ -95,6 +103,7 @@ def get_player_data_with_keys(player_tag, coc_api_key, clashperk_api_key=""):
         day_count = 0
 
         # Process each day in the season
+        # Each "day" starts at 5:00 AM UTC (Legend League reset time)
         current_day = start_date
         while current_day <= end_date:
             current_date = current_day.date()  # Convert to date object
