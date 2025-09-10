@@ -41,7 +41,7 @@ class PlayerEssentialsService:
                              'Action Figure', 'Frozen Arrow', 'Magic Mirror'],
             'Minion Prince': ['Dark Orb', 'Henchmen Puppet', 'Metal Pants', 'Noble Iron', 'Dark Crown'],
             'Grand Warden': ['Eternal Tome', 'Life Gem', 'Healing Tome', 'Rage Gem',
-                             'Lavaloon Puppet', 'Fireball'],
+                             'Lavaloon Puppet', 'Fireball', 'Heroic Torch'],
             'Royal Champion': ['Royal Gem', 'Seeking Shield', 'Haste Vial', 'Hog Rider Puppet',
                                'Electro Boots', 'Rocket Spear']
         }
