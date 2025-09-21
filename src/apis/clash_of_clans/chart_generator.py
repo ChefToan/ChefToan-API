@@ -18,41 +18,10 @@ def generate_chart(player_info, daily_data, final_trophies, average_offense, ave
     plt.rcParams['axes.formatter.use_locale'] = False
     plt.rcParams['axes.formatter.useoffset'] = False
 
-    # Get the trophy range from the data
-    trophy_data = [d.get('trophies') for d in daily_data if d.get('trophies') is not None]
-    if trophy_data:
-        min_trophies = min(trophy_data)
-        max_trophies = max(trophy_data)
-
-        # Include the final trophies in range calculation
-        max_trophies = max(max_trophies, final_trophies)
-
-        # Calculate the range of trophies
-        trophy_range = max_trophies - min_trophies
-
-        # Ensure there's always a minimum range
-        if trophy_range < 100:
-            min_trophies = min_trophies - 50
-            max_trophies = max_trophies + 50
-            trophy_range = max_trophies - min_trophies
-
-        # Dynamically adjust figure height based on trophy range
-        base_height = 7
-        if trophy_range > 1500:
-            height_factor = min(trophy_range / 1000, 3)  # Cap at 3x base height
-            fig_height = base_height * height_factor
-        else:
-            fig_height = base_height
-
-        fig = plt.figure(figsize=(12, fig_height), facecolor='white')
-        gs = fig.add_gridspec(nrows=3, ncols=1, height_ratios=[0.20, 0.23, 0.57], hspace=0.025)
-    else:
-        # Default figure size if no data
-        fig = plt.figure(figsize=(12, 7), facecolor='white')
-        gs = fig.add_gridspec(nrows=3, ncols=1, height_ratios=[0.20, 0.23, 0.57], hspace=0.025)
-        # Default trophy range for empty data
-        min_trophies = 4800
-        max_trophies = 5200
+    # Use a consistent, reasonable figure size regardless of data
+    # This prevents extremely tall images that cause display issues
+    fig = plt.figure(figsize=(12, 8), facecolor='white')
+    gs = fig.add_gridspec(nrows=3, ncols=1, height_ratios=[0.20, 0.23, 0.57], hspace=0.025)
 
     ax_top = fig.add_subplot(gs[0, 0])
     ax_middle = fig.add_subplot(gs[1, 0])
@@ -255,22 +224,30 @@ def generate_chart(player_info, daily_data, final_trophies, average_offense, ave
             indices = range(0, len(x_dates), max(1, idx_step))
             ax_chart.set_xticks([x_dates_mpl[i] for i in indices])
     else:
-        # If no data points, show a message
-        ax_chart.text(0.5, 0.5, "No trophy data available",
-                      fontsize=14, ha='center', va='center')
+        # If no data points, show a more informative message
+        ax_chart.text(0.5, 0.6, "No trophy data available",
+                      fontsize=16, ha='center', va='center', fontweight='bold', color='#666')
+        ax_chart.text(0.5, 0.4, "This player may not be in Legend League\nor has no recorded attacks this season",
+                      fontsize=12, ha='center', va='center', color='#888')
         # Set default y-axis limits
-        ax_chart.set_ylim([4800, 5200])
-        ax_chart.yaxis.set_major_locator(ticker.MultipleLocator(100))
+        ax_chart.set_ylim([0, 1])
+        ax_chart.set_xlim([0, 1])
+        # Remove ticks and grid for the no-data state
+        ax_chart.set_xticks([])
+        ax_chart.set_yticks([])
+        ax_chart.grid(False)
 
-    # Improved axis labels and styling
-    ax_chart.set_xlabel("Date", fontsize=13, fontweight='bold', color='#333')
-    ax_chart.set_ylabel("Trophies", fontsize=13, fontweight='bold', color='#333')
-    plt.setp(ax_chart.xaxis.get_majorticklabels(), rotation=45, ha='right', fontsize=10)
-    plt.setp(ax_chart.yaxis.get_majorticklabels(), fontsize=10)
+    # Only show axis labels and styling when there's data
+    if x_dates and y_trophies:
+        # Improved axis labels and styling
+        ax_chart.set_xlabel("Date", fontsize=13, fontweight='bold', color='#333')
+        ax_chart.set_ylabel("Trophies", fontsize=13, fontweight='bold', color='#333')
+        plt.setp(ax_chart.xaxis.get_majorticklabels(), rotation=45, ha='right', fontsize=10)
+        plt.setp(ax_chart.yaxis.get_majorticklabels(), fontsize=10)
 
-    # Improved grid
-    ax_chart.grid(color='gray', linestyle='--', linewidth=0.6, alpha=0.6)
-    ax_chart.set_axisbelow(True)  # Put grid behind the plot
+        # Improved grid
+        ax_chart.grid(color='gray', linestyle='--', linewidth=0.6, alpha=0.6)
+        ax_chart.set_axisbelow(True)  # Put grid behind the plot
 
     # Add subtle border around the chart
     for spine in ax_chart.spines.values():
